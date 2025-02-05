@@ -1,15 +1,16 @@
-import mongoose, {Schema} from "mongoose";
+import mongoose, { Schema } from "mongoose";
 
-const topicSchema = new Schema(
+const expenseSchema = new Schema(
     {
-        title: String,
-        description: String
+        amount: { type: Number, required: true, min: 1 }, 
+        label: { type: String, required: true }, 
+        credit: { type: Boolean, required: true } 
     },
     {
         timestamps: true
     }
-)
+);
 
-const Topic = mongoose.models.Topic ||  mongoose.model("Topic", topicSchema);
+const Expense = mongoose.models.Expense || mongoose.model("Expense", expenseSchema);
 
-export default Topic;
+export default Expense;

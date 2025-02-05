@@ -1,23 +1,64 @@
 import connectMongoDB from "@/libs/mongodb";
-import Topic from "@/models/topic";
+import Expense from "@/models/topic"; // Renamed from Topic to Expense
+import TotalAmount from "@/models/totalAmount";
 import { NextResponse } from "next/server";
 
-export async function POST(request){
-    const {title,description} = await request.json();
+export async function POST(request) {
+    const { amount, label, credit } = await request.json();
+
+    if (!amount || !label || credit === undefined) {
+        return NextResponse.json({ message: "All fields are required" }, { status: 400 });
+    }
+
     await connectMongoDB();
-    await Topic.create({title,description});
-    return NextResponse.json({message: "Topic created"},{status:201});
+    
+    // Create the new expense entry
+    await Expense.create({ amount, label, credit });
+
+    // Update total amount
+    let totalAmount = await TotalAmount.findOne();
+    
+    if (!totalAmount) {
+        totalAmount = await TotalAmount.create({ amount: 0 });
+    }
+
+    // Adjust total amount based on credit
+    totalAmount.amount += credit ? amount : -amount;
+    await totalAmount.save();
+
+    return NextResponse.json({ message: "Expense created" }, { status: 201 });
 }
 
-export async function GET(){
+export async function GET() {
     await connectMongoDB();
-    const topics = await Topic.find();
-    return NextResponse.json({topics});
+    const expenses = await Expense.find();
+    
+    return NextResponse.json({ expenses });
 }
 
-export async function DELETE(request){
+export async function DELETE(request) {
     const id = request.nextUrl.searchParams.get("id");
+
+    if (!id) {
+        return NextResponse.json({ message: "ID is required" }, { status: 400 });
+    }
+
     await connectMongoDB();
-    await Topic.findByIdAndDelete(id);
-    return NextResponse.json({message: "Topic deleted"},{status:200})
+
+    // Find the expense before deletion
+    const expense = await Expense.findById(id);
+    if (!expense) {
+        return NextResponse.json({ message: "Expense not found" }, { status: 404 });
+    }
+
+    // Adjust the total amount before deleting the expense
+    let totalAmount = await TotalAmount.findOne();
+    if (totalAmount) {
+        totalAmount.amount -= expense.credit ? expense.amount : -expense.amount;
+        await totalAmount.save();
+    }
+
+    await Expense.findByIdAndDelete(id);
+
+    return NextResponse.json({ message: "Expense deleted" }, { status: 200 });
 }
